@@ -58,7 +58,7 @@ uv run python _sample.py \
     --config calibration \
     -Ra 100 -E 1e-3 -rr 0.35 \
     -n_r 84 -l_max 31 -m_max 7 -m_res 4 \
-    -dt 4e-4 -spinup_time 1.0 -steps 10 -samples 500
+    -dt 4e-4 -spinup_time 0.4 -steps 25 -samples 250 
 ```
 
 This runs a spinup from a perturbed initial condition and saves state snapshots `(θ, u_tor, u_pol)` to `data/<config>/`.
