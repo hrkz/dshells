@@ -63,6 +63,23 @@ uv run python _sample.py \
 
 This runs a spinup from a perturbed initial condition and saves state snapshots `(θ, u_tor, u_pol)` to `data/<config>/`.
 
+**Parameters**
+
+| Flag | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `-c`, `--config` | `str` | yes | — | Name of the configuration (used as the output sub-directory under `data/`) |
+| `-Ra` | `float` | yes | — | Rayleigh number |
+| `-E` | `float` | yes | — | Ekman number |
+| `-rr` | `float` | no | `0.35` | Ratio between inner and outer spherical radius |
+| `-n_r` | `int` | yes | — | Number of radial grid points |
+| `-l_max` | `int` | yes | — | Maximum degree of spherical harmonics |
+| `-m_max` | `int` | yes | — | Maximum Fourier mode ($\phi$) |
+| `-m_res` | `int` | no | `1` | $\phi$-periodicity (1 for full sphere, 2 for half sphere, etc.) |
+| `-dt` | `float` | yes | — | Discrete (fixed) time step |
+| `-spinup_time` | `float` | yes | — | Physical time for the spinup phase |
+| `-steps` | `int` | yes | — | Number of time steps per sub-trajectory sample |
+| `-samples` | `int` | yes | — | Total number of samples to save in the dataset |
+
 ---
 
 ## 🖥️ Running on IPGP's DANTE cluster (SLURM)
