@@ -20,6 +20,7 @@ class SphericalMHD:
         self,
         Ra: float,
         E: float,
+        Pr: float,
         radius_ratio: float,
         l_max: int,
         m_max: int,
@@ -28,8 +29,9 @@ class SphericalMHD:
     ):
         assert n_r > 3
 
-        self.Ra = Ra
-        self.E = E
+        self.Ra = Ra   # rotating Rayleigh number, that is the canonical Rayleigh times Ekman
+        self.E = E     # Ekman number
+        self.Pr = Pr   # Prandtl number
         self.ri = radius_ratio / (1 - radius_ratio)
         self.ro = 1 / (1 - radius_ratio)
         self.vol = (4.0 / 3.0) * np.pi * (self.ro**3 - self.ri**3)
@@ -37,6 +39,7 @@ class SphericalMHD:
         self.m_max = m_max
         self.m_res = m_res
         self.n_r = n_r
+        self.buoy_coeff = self.Ra / (self.E * self.Pr * self.ro)   # coefficient in front of the temperature to compute the buoyancy term in Navier-Stokes
 
         self.l_map = np.array(
             [
@@ -163,7 +166,7 @@ class SphericalMHD:
     def __repr__(self):
         return (
             "SphericalMHD(\n"
-            f"  Ra={self.Ra:.3e}, E={self.E:.3e}, "
+            f"  Ra={self.Ra:.3e}, E={self.E:.3e}, Pr={self.Pr:.3e}"
             f"r=[{self.ri:.4f}, {self.ro:.4f}],\n"
             f"  spherical harmonics: n_lm={self.n_lm} "
             f"(l_max={self.l_max}, m_max={self.m_max}, m_res={self.m_res}),\n"
@@ -190,14 +193,14 @@ def eq_system(
         }
 
         theta_lhs = {
-            "dl": coef_lhs * lapl_l["dl"],
-            "d": coef_dt + coef_lhs * lapl_l["d"],
-            "du": coef_lhs * lapl_l["du"],
+            "dl": coef_lhs * lapl_l["dl"] / eq.Pr,
+            "d": coef_dt + coef_lhs * lapl_l["d"] / eq.Pr,
+            "du": coef_lhs * lapl_l["du"] / eq.Pr,
         }
         theta_rhs = {
-            "dl": coef_rhs * lapl_l["dl"],
-            "d": coef_dt + coef_rhs * lapl_l["d"],
-            "du": coef_rhs * lapl_l["du"],
+            "dl": coef_rhs * lapl_l["dl"] / eq.Pr,
+            "d": coef_dt + coef_rhs * lapl_l["d"] / eq.Pr,
+            "du": coef_rhs * lapl_l["du"] / eq.Pr,
         }
 
         u_tor_lhs = {
@@ -367,7 +370,7 @@ def dynamical_solver(
         p_w = (
             q_w / eq.fd_grid_v
             - tridiag_dot(eq.curl["dl"], eq.curl["d"], eq.curl["du"], s_w)
-            + (1 / eq.r_grid[-1] * eq.Ra / eq.E) * theta_lm
+            + eq.buoy_coeff * theta_lm
         )
 
         c = None
