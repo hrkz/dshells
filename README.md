@@ -10,9 +10,11 @@
 
 To setup and run the Python scripts and notebooks, we use [uv](https://docs.astral.sh/uv/) to manage the package dependencies in a custom environment
 
-1. **Setup the environment**
+1. **Prepare dependencies**
 
-Make sure [shtns](https://gricad-gitlab.univ-grenoble-alpes.fr/schaeffn/shtns/-/tree/jax-gpu?ref_type=heads) (`jax-gpu` branch) is installed with support for `jax` within its build dependencies. Then,
+Download the [shtns](https://gricad-gitlab.univ-grenoble-alpes.fr/schaeffn/shtns/-/tree/jax-gpu?ref_type=heads) library inside the `dshells/` folder and switch to the `jax-gpu` branch.
+
+2. **Setup the environment**
 
 ```bash
 cd dshells
