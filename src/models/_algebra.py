@@ -5,28 +5,31 @@ import jax.numpy as jnp
 def tridiag_dot(
     dl: jnp.ndarray, d: jnp.ndarray, du: jnp.ndarray, x: jnp.ndarray
 ) -> jnp.ndarray:
-    return (  # diags
-        d * x + dl * jnp.roll(x, 1, axis=0) + du * jnp.roll(x, -1, axis=0)
+    return (
+        d * x  # main
+        + dl * jnp.roll(x, 1, axis=0)  # lower
+        + du * jnp.roll(x, -1, axis=0)  # upper
     )
 
 
 def tridiag_solve(
     dl: jnp.ndarray, d: jnp.ndarray, du: jnp.ndarray, b: jnp.ndarray
 ) -> jnp.ndarray:
-    x_real = jax.lax.linalg.tridiagonal_solve(
-        jnp.moveaxis(dl, 0, -1),
-        jnp.moveaxis(d, 0, -1),
-        jnp.moveaxis(du, 0, -1),
-        jnp.expand_dims(jnp.moveaxis(b.real, 0, -1), -1),
+    dl, d, du = (
+        jnp.moveaxis(k, 0, -1)
+        for k in (dl, d, du)  # db
     )
-    x_imag = jax.lax.linalg.tridiagonal_solve(
-        jnp.moveaxis(dl, 0, -1),
-        jnp.moveaxis(d, 0, -1),
-        jnp.moveaxis(du, 0, -1),
-        jnp.expand_dims(jnp.moveaxis(b.imag, 0, -1), -1),
+
+    def __split__(rhs):
+        rhs = jnp.expand_dims(jnp.moveaxis(rhs, 0, -1), -1)
+        return jax.lax.linalg.tridiagonal_solve(  # batch solve
+            dl, d, du, rhs
+        )
+
+    x = __split__(b.real) + 1j * __split__(b.imag)
+    return jnp.moveaxis(  # bd
+        x[..., -1], -1, 0
     )
-    x = x_real + 1j * x_imag
-    return jnp.moveaxis(x[..., -1], -1, 0)
 
 
 def pentadiag_dot(
@@ -37,17 +40,20 @@ def pentadiag_dot(
     duu: jnp.ndarray,
     x: jnp.ndarray,
 ) -> jnp.ndarray:
-    return (  # diags
-        d * x
-        + dl * jnp.roll(x, 1, axis=0)
-        + du * jnp.roll(x, -1, axis=0)
-        + dll * jnp.roll(x, 2, axis=0)
-        + duu * jnp.roll(x, -2, axis=0)
+    return (
+        d * x  # main
+        + dl * jnp.roll(x, 1, axis=0)  # lower
+        + du * jnp.roll(x, -1, axis=0)  # upper
+        + dll * jnp.roll(x, 2, axis=0)  # 2-lower
+        + duu * jnp.roll(x, -2, axis=0)  # 2-upper
     )
 
 
 def pentadiag_factor_lu(A):
-    dll, dl, d, du, duu = (A[k] for k in ("dll", "dl", "d", "du", "duu"))
+    dll, dl, d, du, duu = (
+        A[k]
+        for k in ("dll", "dl", "d", "du", "duu")  # diags
+    )
 
     # row 0
     d = d.at[0].set(1.0 / d[0])
@@ -103,22 +109,26 @@ def pentadiag_solve_lu(
 
     # forward
     def fwd_step(x, j):
-        return (
-            x.at[j].set(d[j] * x[j] - dl[j] * x[j - 1] - dll[j] * x[j - 2]),
-            None,
-        )
+        c = x.at[j].set(d[j] * x[j] - dl[j] * x[j - 1] - dll[j] * x[j - 2])
+        return (c, None)
 
     x = x.at[0].mul(d[0])
     x = x.at[1].set(d[1] * x[1] - dl[1] * x[0])
-    x, _ = jax.lax.scan(fwd_step, x, jnp.arange(2, n))
+    x, _ = jax.lax.scan(
+        fwd_step,
+        x,
+        jnp.arange(2, n),  # 2, ..., n
+    )
 
     # backward
     def bwd_step(x, j):
-        return (
-            x.at[j].add(-du[j] * x[j + 1] - duu[j] * x[j + 2]),
-            None,
-        )
+        d = x.at[j].add(-du[j] * x[j + 1] - duu[j] * x[j + 2])
+        return (d, None)
 
     x = x.at[n - 2].add(-du[n - 2] * x[n - 1])
-    x, _ = jax.lax.scan(bwd_step, x, jnp.arange(n - 3, -1, -1))
+    x, _ = jax.lax.scan(
+        bwd_step,
+        x,
+        jnp.arange(n - 3, -1, -1),  # n - 2, ..., 0
+    )
     return x

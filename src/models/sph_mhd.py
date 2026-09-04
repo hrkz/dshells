@@ -5,6 +5,8 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 
+import shtns
+
 from models.time_solver import Scheme
 from models._algebra import (
     tridiag_dot,
@@ -12,6 +14,10 @@ from models._algebra import (
     tridiag_solve,
     pentadiag_factor_lu,
     pentadiag_solve_lu,
+)
+from models._adj_sh import (
+    shtns_synth,
+    shtns_analys,
 )
 
 
@@ -39,7 +45,9 @@ class SphericalMHD:
         self.m_max = m_max
         self.m_res = m_res
         self.n_r = n_r
-        self.buoy_coeff = self.Ra / (self.E * self.Pr * self.ro)   # coefficient in front of the temperature to compute the buoyancy term in Navier-Stokes
+
+        self.sh = shtns.sht(self.l_max, mres=self.m_res)
+        self.sh.set_grid(nl_order=2, flags=shtns.SHT_ALLOW_GPU + shtns.SHT_PHI_CONTIGUOUS) # GPU by default
 
         self.l_map = np.array(
             [
@@ -96,7 +104,7 @@ class SphericalMHD:
                 self.grad["dl"],
                 self.grad["d"],
                 self.grad["du"],
-                (self.r_grid[0] * self.r_grid[-1]) / self.fd_grid_v - self.r_grid[0],
+                (self.ri * self.ro) / self.fd_grid_v - self.ri,
             )[:, -1]
         )
 
@@ -270,8 +278,6 @@ def dynamical_solver(
     eq: SphericalMHD,
     solver: Scheme,
     source: Callable,
-    sht_synth: Callable,  # temporary
-    sht_analys: Callable,  # temporary
 ) -> Callable:
     # Courant–Friedrichs–Lewy condition (number).
     def __cfl__(u_tor_g: jnp.ndarray, u_pol_g: jnp.ndarray) -> float:
@@ -292,7 +298,7 @@ def dynamical_solver(
 
     (theta_lhs, theta_rhs, u_tor_lhs, u_tor_rhs, u_pol_lhs, u_pol_rhs) = (
         stack_matrices(sys)
-        for sys in eq_system(eq, solver.coef_dt(), solver.coef_lhs(), solver.coef_rhs())
+        for sys in eq_system(eq, solver.coef_dt, solver.coef_lhs, solver.coef_rhs)
     )
     u_pol_lu = pentadiag_factor_lu(u_pol_lhs)
 
@@ -354,28 +360,28 @@ def dynamical_solver(
             nlu_p = ur * wt - ut * wr
             return (nlu_r, nlu_t, nlu_p)
 
-        for ir in range(0, len(eq.fd_grid)):
-            ur, ut, up = sht_synth(q_u[ir], s_u[ir], u_tor_lm[ir])
-            wr, wt, wp = sht_synth(q_w[ir], s_w[ir], t_w[ir])
-            gtr, gtt, gtp = sht_synth(q_gt[ir], s_gt[ir], jnp.zeros_like(s_gt[ir]))
+        ur, ut, up = shtns_synth(eq.sh, q_u.view(jnp.float64), s_u.view(jnp.float64), u_tor_lm.view(jnp.float64))
+        wr, wt, wp = shtns_synth(eq.sh, q_w.view(jnp.float64), s_w.view(jnp.float64), t_w.view(jnp.float64))
+        gtr, gtt, gtp = shtns_synth(eq.sh, q_gt.view(jnp.float64), s_gt.view(jnp.float64), jnp.zeros_like(s_gt.view(jnp.float64)))
 
-            nlu_r, nlu_t, nlu_p = __cross__(ur, ut, up, wr, wt, wp)
-            nlt = -(ur * gtr + ut * gtt + up * gtp)
-            q_gt = q_gt.at[ir].set(sht_analys(nlt)[0])
-            q_w = q_w.at[ir].set(sht_analys(nlu_r)[0])
-            st_w = sht_analys(nlu_t, nlu_p)
-            s_w = s_w.at[ir].set(st_w[0])
-            t_w = t_w.at[ir].set(st_w[1])
+        nlu_r, nlu_t, nlu_p = __cross__(ur, ut, up, wr, wt, wp)
+        nlt = -(ur * gtr + ut * gtt + up * gtp)
+        q_gt = shtns_analys(eq.sh, nlt).view(jnp.complex128)
+        q_w = shtns_analys(eq.sh, nlu_r).view(jnp.complex128)
+        st_w = shtns_analys(eq.sh, nlu_t, nlu_p)
+        s_w = st_w[0].view(jnp.complex128)
+        t_w = st_w[1].view(jnp.complex128)
 
         p_w = (
             q_w / eq.fd_grid_v
             - tridiag_dot(eq.curl["dl"], eq.curl["d"], eq.curl["du"], s_w)
-            + eq.buoy_coeff * theta_lm
+            + eq.Ra / (eq.E * eq.Pr * eq.ro) * theta_lm
         )
 
         c = None
 
-        return (q_gt, t_w, p_w, c)
+        theta_source, u_tor_source, u_pol_source = source(theta_lm, u_tor_lm, u_pol_lm)
+        return (q_gt + theta_source, t_w + u_tor_source, p_w + u_pol_source, c,)
 
     # Implicit solve
     def __solve__(

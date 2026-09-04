@@ -5,15 +5,6 @@ import jax.numpy as jnp
 
 
 class Scheme:
-    def coef_dt(self) -> float:
-        pass
-
-    def coef_lhs(self) -> float:
-        pass
-
-    def coef_rhs(self) -> float:
-        pass
-
     def __call__(
         self,
         eq,
@@ -29,15 +20,9 @@ class Scheme:
 class PC2(Scheme):
     def __init__(self, dt: float):
         self.dt = dt
-
-    def coef_dt(self) -> float:
-        return 1 / self.dt
-
-    def coef_lhs(self) -> float:
-        return -0.5
-
-    def coef_rhs(self) -> float:
-        return 0.5
+        self.coef_dt = 1 / self.dt
+        self.coef_lhs = -0.5
+        self.coef_rhs = 0.5
 
     def __call__(
         self,
