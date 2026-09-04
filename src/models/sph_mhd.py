@@ -35,9 +35,11 @@ class SphericalMHD:
     ):
         assert n_r > 3
 
-        self.Ra = Ra   # rotating Rayleigh number, that is the canonical Rayleigh times Ekman
-        self.E = E     # Ekman number
-        self.Pr = Pr   # Prandtl number
+        self.Ra = (
+            Ra  # rotating Rayleigh number, that is the canonical Rayleigh times Ekman
+        )
+        self.E = E  # Ekman number
+        self.Pr = Pr  # Prandtl number
         self.ri = radius_ratio / (1 - radius_ratio)
         self.ro = 1 / (1 - radius_ratio)
         self.vol = (4.0 / 3.0) * np.pi * (self.ro**3 - self.ri**3)
@@ -47,7 +49,9 @@ class SphericalMHD:
         self.n_r = n_r
 
         self.sh = shtns.sht(self.l_max, mres=self.m_res)
-        self.sh.set_grid(nl_order=2, flags=shtns.SHT_ALLOW_GPU + shtns.SHT_PHI_CONTIGUOUS) # GPU by default
+        self.sh.set_grid(
+            nl_order=2, flags=shtns.SHT_ALLOW_GPU + shtns.SHT_PHI_CONTIGUOUS
+        )  # GPU by default
 
         self.l_map = np.array(
             [
@@ -360,9 +364,21 @@ def dynamical_solver(
             nlu_p = ur * wt - ut * wr
             return (nlu_r, nlu_t, nlu_p)
 
-        ur, ut, up = shtns_synth(eq.sh, q_u.view(jnp.float64), s_u.view(jnp.float64), u_tor_lm.view(jnp.float64))
-        wr, wt, wp = shtns_synth(eq.sh, q_w.view(jnp.float64), s_w.view(jnp.float64), t_w.view(jnp.float64))
-        gtr, gtt, gtp = shtns_synth(eq.sh, q_gt.view(jnp.float64), s_gt.view(jnp.float64), jnp.zeros_like(s_gt.view(jnp.float64)))
+        ur, ut, up = shtns_synth(
+            eq.sh,
+            q_u.view(jnp.float64),
+            s_u.view(jnp.float64),
+            u_tor_lm.view(jnp.float64),
+        )
+        wr, wt, wp = shtns_synth(
+            eq.sh, q_w.view(jnp.float64), s_w.view(jnp.float64), t_w.view(jnp.float64)
+        )
+        gtr, gtt, gtp = shtns_synth(
+            eq.sh,
+            q_gt.view(jnp.float64),
+            s_gt.view(jnp.float64),
+            jnp.zeros_like(s_gt.view(jnp.float64)),
+        )
 
         nlu_r, nlu_t, nlu_p = __cross__(ur, ut, up, wr, wt, wp)
         nlt = -(ur * gtr + ut * gtt + up * gtp)
@@ -381,7 +397,12 @@ def dynamical_solver(
         c = None
 
         theta_source, u_tor_source, u_pol_source = source(theta_lm, u_tor_lm, u_pol_lm)
-        return (q_gt + theta_source, t_w + u_tor_source, p_w + u_pol_source, c,)
+        return (
+            q_gt + theta_source,
+            t_w + u_tor_source,
+            p_w + u_pol_source,
+            c,
+        )
 
     # Implicit solve
     def __solve__(

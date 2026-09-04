@@ -17,6 +17,7 @@ from models.sph_mhd import (
     kinetic_energy,
 )
 
+
 def main(args: argparse.Namespace) -> None:
     eq = SphericalMHD(
         Ra=args.Ra,
@@ -139,7 +140,9 @@ if __name__ == "__main__":
         "-c", "--config", type=str, help="Name of the configuration", required=True
     )
 
-    parser.add_argument("-Ra", type=float, help="rotating Rayleigh number", required=True)
+    parser.add_argument(
+        "-Ra", type=float, help="rotating Rayleigh number", required=True
+    )
     parser.add_argument("-E", type=float, help="Ekman number", required=True)
     parser.add_argument("-Pr", type=float, help="Prandtl number", required=True)
 

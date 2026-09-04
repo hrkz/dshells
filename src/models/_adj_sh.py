@@ -230,7 +230,6 @@ def shtns_synth_bwd(sh, residuals, g):
         return (sh.analys_jax(g, adjoint=True),)  # return a tuple
 
 
-
 @functools.partial(jax.custom_vjp, nondiff_argnums=(0,))
 def shtns_analys(sh, *args):
     """
@@ -258,6 +257,7 @@ def shtns_analys_bwd(sh, residuals, g):
         return sh.synth_jax(*g, adjoint=True)
     else:
         return (sh.synth_jax(g, adjoint=True),)  # return a tuple
+
 
 shtns_synth.defvjp(shtns_synth_fwd, shtns_synth_bwd)
 shtns_analys.defvjp(shtns_analys_fwd, shtns_analys_bwd)

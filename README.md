@@ -27,7 +27,7 @@ Note: the code can also run on CPU with minor changes.
 
 ## 🗂️ Notebooks & scripts
 
-### Parameter calibration — `notebooks/calibration.ipynb` · `scripts/calibration.py`
+### Parameter calibration — `notebooks/calibration.ipynb`
 
 Recovers the rotating Rayleigh number $Ra$, Ekman number $E$ and Prandtl number $Pr$ from trajectory observations by differentiating end-to-end through the time integrator.
 
