@@ -26,6 +26,7 @@ def main(args: argparse.Namespace) -> None:
     eq = SphericalMHD(
         Ra=args.Ra,
         E=args.E,
+        Pr=1,
         radius_ratio=args.rr,
         l_max=args.l_max,
         m_max=args.m_max,
