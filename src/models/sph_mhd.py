@@ -31,9 +31,10 @@ class SphericalMHD:
         l_max: int,
         m_max: int,
         m_res: int,
-        n_r: int,
+        n_r: int = 0,
+        r: Optional[np.ndarray] = None
     ):
-        assert n_r > 3
+        assert n_r > 3 or len(r) > 3
 
         self.Ra = (
             Ra  # rotating Rayleigh number, that is the canonical Rayleigh times Ekman
@@ -46,7 +47,7 @@ class SphericalMHD:
         self.l_max = l_max
         self.m_max = m_max
         self.m_res = m_res
-        self.n_r = n_r
+        self.n_r = n_r if r is None else len(r)
 
         self.sh = shtns.sht(self.l_max, mres=self.m_res)
         self.sh.set_grid(
@@ -62,7 +63,7 @@ class SphericalMHD:
         )
         self.n_lm = len(self.l_map)
 
-        self.r_grid = boundary_layer_grid(
+        self.r_grid = r if r is not None else boundary_layer_grid(
             n_r=self.n_r,
             ro=self.ro,
             ri=self.ri,
